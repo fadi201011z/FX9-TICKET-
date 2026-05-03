@@ -2,6 +2,7 @@ import {
   Client, TextChannel, PermissionsBitField, ChannelType,
   ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder,
   StringSelectMenuInteraction, ButtonInteraction, ModalSubmitInteraction,
+  OverwriteResolvable,
 } from "discord.js";
 import {
   getGuildConfig, saveGuildConfig, getTicketByUser,
@@ -50,34 +51,34 @@ export async function handleTicketModalSubmit(client: Client, interaction: Modal
     return;
   }
 
-  const title       = interaction.fields.getTextInputValue("title");
+  const title = interaction.fields.getTextInputValue("title");
   const description = interaction.fields.getTextInputValue("description");
-  const evidence    = interaction.fields.getTextInputValue("evidence") || undefined;
+  const evidence = interaction.fields.getTextInputValue("evidence") || undefined;
 
   config.ticketCounter = (config.ticketCounter ?? 0) + 1;
   saveGuildConfig(config);
 
-  const ticketId  = `FX9-${config.ticketCounter.toString().padStart(4, "0")}`;
-  // اسم القناة: رقم-القسم  (الرقم يبقى دائماً)
-  const chanName  = `${config.ticketCounter}-${CATEGORY_SLUG[category] ?? "تكت"}`;
-  const guild     = interaction.guild!;
+  const ticketId = `FX9-${config.ticketCounter.toString().padStart(4, "0")}`;
+  const chanName = `${config.ticketCounter}-${CATEGORY_SLUG[category] ?? "تكت"}`;
+  const guild = interaction.guild!;
 
-  // ── صلاحيات قناة العضو ────────────────────────────────────────────────────
-  const userOverwrites: Parameters<typeof guild.channels.create>[0]["permissionOverwrites"] = [
+  // ── إصلاح مشكلة الـ push (صلاحيات قناة العضو) ───────────────────────────────
+  const userOverwrites: OverwriteResolvable[] = [
     { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
     { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
     { id: client.user!.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageMessages] },
   ];
-  // رتب الدعم ترى قناة العضو للاطلاع فقط (الريلاي يكفي)
-  for (const roleId of config.supportRoleIds) {
-    userOverwrites.push({
-      id: roleId,
-      allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.ReadMessageHistory],
-      deny: [PermissionsBitField.Flags.SendMessages],
-    });
+
+  if (config.supportRoleIds) {
+    for (const roleId of config.supportRoleIds) {
+      userOverwrites.push({
+        id: roleId,
+        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.ReadMessageHistory],
+        deny: [PermissionsBitField.Flags.SendMessages],
+      });
+    }
   }
 
-  // ── إنشاء قناة العضو ──────────────────────────────────────────────────────
   const userChannel = await guild.channels.create({
     name: chanName,
     type: ChannelType.GuildText,
@@ -89,12 +90,14 @@ export async function handleTicketModalSubmit(client: Client, interaction: Modal
   // ── قناة الإدارة ──────────────────────────────────────────────────────────
   let adminChannel: TextChannel | null = null;
   if (config.adminCategoryId) {
-    const adminOverwrites: Parameters<typeof guild.channels.create>[0]["permissionOverwrites"] = [
+    const adminOverwrites: OverwriteResolvable[] = [
       { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
       { id: client.user!.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageMessages] },
     ];
-    for (const roleId of config.supportRoleIds) {
-      adminOverwrites.push({ id: roleId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] });
+    if (config.supportRoleIds) {
+      for (const roleId of config.supportRoleIds) {
+        adminOverwrites.push({ id: roleId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] });
+      }
     }
     adminChannel = await guild.channels.create({
       name: `admin-${chanName}`,
@@ -124,8 +127,7 @@ export async function handleTicketModalSubmit(client: Client, interaction: Modal
   };
   saveTicket(ticket);
 
-  // ── إرسال في قناة العضو (بدون Quick Reply) ────────────────────────────────
-  const supportMentions = config.supportRoleIds.map((id) => `<@&${id}>`).join(" ");
+  const supportMentions = config.supportRoleIds?.map((id) => `<@&${id}>`).join(" ") || "";
   const userMsg = await userChannel.send({
     content: `<@${user.id}>${supportMentions ? " | " + supportMentions : ""}`,
     embeds: [ticketEmbed(ticket, false)],
@@ -133,7 +135,6 @@ export async function handleTicketModalSubmit(client: Client, interaction: Modal
   });
   await userMsg.pin().catch(() => null);
 
-  // ── إرسال في قناة الإدارة (مع Quick Reply) ───────────────────────────────
   if (adminChannel) {
     const adminMsg = await adminChannel.send({
       content: supportMentions || undefined,
@@ -161,17 +162,16 @@ export async function handleTicketModalSubmit(client: Client, interaction: Modal
     ].filter(Boolean).join("\n"),
   });
 
-  // ── لوق ──────────────────────────────────────────────────────────────────
   if (config.logChannelId) {
     const logCh = guild.channels.cache.get(config.logChannelId) as TextChannel | undefined;
     await logCh?.send({
       embeds: [logEmbed("🟢 تكت جديد مفتوح", COLOR.green, [
-        { name: "رقم التكت",    value: ticketId, inline: true },
-        { name: "العضو",         value: `<@${user.id}> \`${user.username}\``, inline: true },
-        { name: "القسم",         value: CATEGORY_SLUG[category] ?? category, inline: true },
-        { name: "قناة العضو",   value: `<#${userChannel.id}>`, inline: true },
+        { name: "رقم التكت", value: ticketId, inline: true },
+        { name: "العضو", value: `<@${user.id}> \`${user.username}\``, inline: true },
+        { name: "القسم", value: CATEGORY_SLUG[category] ?? category, inline: true },
+        { name: "قناة العضو", value: `<#${userChannel.id}>`, inline: true },
         { name: "قناة الإدارة", value: adminChannel ? `<#${adminChannel.id}>` : "معطّل", inline: true },
-        { name: "العنوان",       value: title },
+        { name: "العنوان", value: title },
       ])],
     });
   }
@@ -183,32 +183,30 @@ export async function handleClaimTicket(client: Client, interaction: ButtonInter
 
   const config = getGuildConfig(interaction.guildId!);
   const member = await interaction.guild!.members.fetch(interaction.user.id);
-  const ok = config.supportRoleIds.some((id) => member.roles.cache.has(id)) || member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+  const ok = config.supportRoleIds?.some((id) => member.roles.cache.has(id)) || member.permissions.has(PermissionsBitField.Flags.ManageChannels);
 
   if (!ok) { await interaction.editReply({ content: "❌ لا تملك رتبة الدعم لاستلام هذا التكت." }); return; }
 
-  const ticket = getTicket(interaction.channelId) ?? getTicketByAdminChannel(interaction.channelId);
+  const ticket = getTicket(interaction.channelId!) ?? getTicketByAdminChannel(interaction.channelId!);
   if (!ticket) { await interaction.editReply({ content: "❌ التكت غير موجود." }); return; }
   if (ticket.status === "claimed") { await interaction.editReply({ content: `❌ مستلم بالفعل من <@${ticket.claimedBy}>.` }); return; }
 
-  ticket.status            = "claimed";
-  ticket.claimedBy         = interaction.user.id;
+  ticket.status = "claimed";
+  ticket.claimedBy = interaction.user.id;
   ticket.claimedByUsername = interaction.user.username;
-  ticket.lastActivity      = Date.now();
+  ticket.lastActivity = Date.now();
   saveTicket(ticket);
 
   const stats = getAdminStats(interaction.user.id);
   stats.username = interaction.user.username;
-  stats.claimed  = (stats.claimed ?? 0) + 1;
+  stats.claimed = (stats.claimed ?? 0) + 1;
   saveAdminStats(stats);
 
-  // تحديث الأزرار: قناة العضو بدون QR، قناة الإدارة مع QR
   const isAdminChannel = interaction.channelId === ticket.adminChannelId;
   await interaction.message.edit({
     components: ticketButtons(true, interaction.user.username, isAdminChannel) as any,
   });
 
-  // تحديث الرسالة في القناة الأخرى أيضاً
   const otherChId = isAdminChannel ? ticket.channelId : ticket.adminChannelId;
   if (otherChId) {
     const otherCh = client.channels.cache.get(otherChId) as TextChannel | undefined;
@@ -223,7 +221,7 @@ export async function handleClaimTicket(client: Client, interaction: ButtonInter
 
   const logE = logEmbed("📩 تم Claim", COLOR.blue, [
     { name: "الإداري", value: `<@${interaction.user.id}>`, inline: true },
-    { name: "التكت",   value: ticket.ticketId, inline: true },
+    { name: "التكت", value: ticket.ticketId, inline: true },
   ]);
 
   for (const chId of [ticket.channelId, ticket.adminChannelId].filter(Boolean) as string[]) {
@@ -237,8 +235,8 @@ export async function handleClaimTicket(client: Client, interaction: ButtonInter
     const logCh = (await client.channels.fetch(config.logChannelId).catch(() => null)) as TextChannel | null;
     await logCh?.send({ embeds: [logEmbed("📩 Claim", COLOR.blue, [
       { name: "رقم التكت", value: ticket.ticketId, inline: true },
-      { name: "الإداري",   value: `<@${interaction.user.id}>`, inline: true },
-      { name: "العضو",     value: `<@${ticket.userId}>`, inline: true },
+      { name: "الإداري", value: `<@${interaction.user.id}>`, inline: true },
+      { name: "العضو", value: `<@${ticket.userId}>`, inline: true },
     ])] });
   }
 }
@@ -247,22 +245,22 @@ export async function handleClaimTicket(client: Client, interaction: ButtonInter
 export async function handleUnclaimTicket(client: Client, interaction: ButtonInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const ticket = getTicket(interaction.channelId) ?? getTicketByAdminChannel(interaction.channelId);
+  const ticket = getTicket(interaction.channelId!) ?? getTicketByAdminChannel(interaction.channelId!);
   if (!ticket) { await interaction.editReply({ content: "❌ التكت غير موجود." }); return; }
 
   const config = getGuildConfig(interaction.guildId!);
   const member = await interaction.guild!.members.fetch(interaction.user.id);
-  const isSupport = config.supportRoleIds.some((id) => member.roles.cache.has(id)) || member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+  const isSupport = config.supportRoleIds?.some((id) => member.roles.cache.has(id)) || member.permissions.has(PermissionsBitField.Flags.ManageChannels);
 
   if (ticket.claimedBy !== interaction.user.id && !isSupport) {
     await interaction.editReply({ content: "❌ لا يمكنك Unclaim هذا التكت." }); return;
   }
 
-  const prev           = ticket.claimedBy;
-  ticket.status        = "open";
-  ticket.claimedBy     = undefined;
+  const prev = ticket.claimedBy;
+  ticket.status = "open";
+  ticket.claimedBy = undefined;
   ticket.claimedByUsername = undefined;
-  ticket.lastActivity  = Date.now();
+  ticket.lastActivity = Date.now();
   saveTicket(ticket);
 
   const isAdminChannel = interaction.channelId === ticket.adminChannelId;
@@ -282,7 +280,7 @@ export async function handleUnclaimTicket(client: Client, interaction: ButtonInt
 
   const logE = logEmbed("📤 تم Unclaim", COLOR.black, [
     { name: "الإداري السابق", value: prev ? `<@${prev}>` : "—", inline: true },
-    { name: "التكت",          value: ticket.ticketId, inline: true },
+    { name: "التكت", value: ticket.ticketId, inline: true },
   ]);
   for (const chId of [ticket.channelId, ticket.adminChannelId].filter(Boolean) as string[]) {
     const ch = client.channels.cache.get(chId) as TextChannel | undefined;
@@ -309,18 +307,15 @@ export async function handleRenameTicket(interaction: ButtonInteraction): Promis
 export async function handleRenameModalSubmit(client: Client, interaction: ModalSubmitInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const raw  = interaction.fields.getTextInputValue("new_name");
+  const raw = interaction.fields.getTextInputValue("new_name");
   const slug = raw.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\u0600-\u06ff-]/g, "").slice(0, 40);
 
-  // جلب التكت للحصول على رقمه
-  const ticket = getTicket(interaction.channelId) ?? getTicketByAdminChannel(interaction.channelId);
+  const ticket = getTicket(interaction.channelId!) ?? getTicketByAdminChannel(interaction.channelId!);
   const counter = ticket ? ticket.ticketId.split("-")[1] ?? "" : "";
 
-  // الاسم النهائي: رقم-الاسم_المخصص
-  const finalName  = counter ? `${parseInt(counter, 10)}-${slug}` : slug;
-  const adminName  = `admin-${finalName}`;
+  const finalName = counter ? `${parseInt(counter, 10)}-${slug}` : slug;
+  const adminName = `admin-${finalName}`;
 
-  // إعادة تسمية القناتين
   const userCh = (ticket ? client.channels.cache.get(ticket.channelId) : interaction.channel) as TextChannel | undefined;
   await userCh?.setName(finalName).catch(() => null);
 
@@ -337,9 +332,7 @@ export async function handleRenameModalSubmit(client: Client, interaction: Modal
 export async function handleQuickReply(client: Client, interaction: StringSelectMenuInteraction): Promise<void> {
   const config = getGuildConfig(interaction.guildId!);
   const member = await interaction.guild!.members.fetch(interaction.user.id);
-  const ok =
-    config.supportRoleIds.some((id) => member.roles.cache.has(id)) ||
-    member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+  const ok = config.supportRoleIds?.some((id) => member.roles.cache.has(id)) || member.permissions.has(PermissionsBitField.Flags.ManageChannels);
 
   if (!ok) {
     await interaction.reply({ content: "❌ الردود السريعة متاحة لفريق الدعم فقط.", ephemeral: true });
@@ -347,19 +340,19 @@ export async function handleQuickReply(client: Client, interaction: StringSelect
   }
 
   const MAP: Record<string, string> = {
-    reviewing:    "🔍 **نحن نراجع طلبك حالياً.** سنتواصل معك قريباً، يرجى الانتظار.",
-    need_evidence:"📸 **يرجى تزويدنا بصور أو أدلة إضافية** لمساعدتنا في حل مشكلتك.",
-    resolved:     "✅ **تم حل مشكلتك بنجاح.**\nإذا احتجت أي شيء آخر لا تتردد في التواصل.",
-    clarify:      "❓ **يرجى توضيح مشكلتك أكثر** حتى نتمكن من مساعدتك بشكل أفضل.",
-    thanks:       "🙏 **شكراً لتواصلك مع فريق FX9!**\nنحن هنا دائماً لخدمتك.",
-    transfer:     "🔄 **سيتم تحويل طلبك** إلى الجهة المختصة. يرجى الانتظار.",
-    known_issue:  "⚠️ **هذه مشكلة معروفة لدينا** ويعمل فريقنا على حلها حالياً. سنخطرك فور الانتهاء.",
+    reviewing: "🔍 **نحن نراجع طلبك حالياً.** سنتواصل معك قريباً، يرجى الانتظار.",
+    need_evidence: "📸 **يرجى تزويدنا بصور أو أدلة إضافية** لمساعدتنا في حل مشكلتك.",
+    resolved: "✅ **تم حل مشكلتك بنجاح.**\nإذا احتجت أي شيء آخر لا تتردد في التواصل.",
+    clarify: "❓ **يرجى توضيح مشكلتك أكثر** حتى نتمكن من مساعدتك بشكل أفضل.",
+    thanks: "🙏 **شكراً لتواصلك مع فريق FX9!**\nنحن هنا دائماً لخدمتك.",
+    transfer: "🔄 **سيتم تحويل طلبك** إلى الجهة المختصة. يرجى الانتظار.",
+    known_issue: "⚠️ **هذه مشكلة معروفة لدينا** ويعمل فريقنا على حلها حالياً. سنخطرك فور الانتهاء.",
   };
 
   const reply = MAP[interaction.values[0]];
   if (!reply) { await interaction.reply({ content: "❌ رد غير معروف.", ephemeral: true }); return; }
 
-  const ticket = getTicket(interaction.channelId) ?? getTicketByAdminChannel(interaction.channelId);
+  const ticket = getTicket(interaction.channelId!) ?? getTicketByAdminChannel(interaction.channelId!);
   if (ticket) {
     const userCh = (await client.channels.fetch(ticket.channelId).catch(() => null)) as TextChannel | null;
     await userCh?.send({ content: reply });
