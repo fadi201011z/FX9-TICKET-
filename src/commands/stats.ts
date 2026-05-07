@@ -7,7 +7,7 @@ import { COLOR } from "../utils/embeds.js";
 
 export const data = new SlashCommandBuilder()
   .setName("stats")
-  .setDescription("📊 إحصائيات نظام التكتات FX9")
+  .setDescription("📊 .إحصائيات نظام التكتات FX9")
   .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageChannels);
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
