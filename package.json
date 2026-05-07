@@ -6,7 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
-    "deploy": "tsx src/deploy-commands.ts"
+    "deploy": "node dist/deploy-commands.js" 
   },
   "dependencies": {
     "discord.js": "^14.16.3",
