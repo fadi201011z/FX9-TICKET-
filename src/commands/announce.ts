@@ -49,7 +49,7 @@ export const data = new SlashCommandBuilder()
       { name: "🔧 صيانة",           value: "maintenance"  },
       { name: "✅ تحديث/إصدار",     value: "update"       },
       { name: "🚨 تحذير",           value: "warning"      },
-      { name: "🎉 حدث / فعالية",    value: "event"        },
+    
       { name: "📋 قواعد",           value: "rules"        },
     )
   )
@@ -80,7 +80,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     maintenance: { emoji: "🔧", label: "صيانة",   color: COLOR.orange },
     update:      { emoji: "✅", label: "تحديث",   color: COLOR.green  },
     warning:     { emoji: "🚨", label: "تحذير",   color: COLOR.red    },
-    event:       { emoji: "🎉", label: "فعالية",  color: COLOR.gold   },
+    
     rules:       { emoji: "📋", label: "قواعد",   color: COLOR.purple },
   };
 

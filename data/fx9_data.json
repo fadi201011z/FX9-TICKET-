@@ -2,10 +2,89 @@
   "guilds": {
     "1499390539546759300": {
       "guildId": "1499390539546759300",
-      "supportRoleIds": [],
-      "ticketCounter": 0
+      "supportRoleIds": [
+        "1500142106990219335",
+        "1499392183193833493",
+        "1499392077858078720",
+        "1500142521651826889",
+        "1499391995867697282"
+      ],
+      "ticketCounter": 3,
+      "panelChannelId": "1499397306292764682",
+      "adminCategoryId": "1500208453241540648",
+      "ticketCategoryId": "1500208641201016943",
+      "logChannelId": "1500192218126749826"
     }
   },
-  "tickets": {},
-  "adminStats": {}
+  "tickets": {
+    "FX9-0001": {
+      "ticketId": "FX9-0001",
+      "channelId": "1502012880558493826",
+      "adminChannelId": "1502012882353787041",
+      "guildId": "1499390539546759300",
+      "userId": "1050469935089983488",
+      "username": "f.993",
+      "category": "technical",
+      "title": "azaze",
+      "description": "azeaeaze",
+      "priority": "medium",
+      "status": "closed",
+      "openedAt": 1778174787361,
+      "lastActivity": 1778174848707,
+      "inactivityWarned": false,
+      "closedAt": 1778174849283,
+      "rating": 4,
+      "ratedBy": "1050469935089983488"
+    },
+    "FX9-0002": {
+      "ticketId": "FX9-0002",
+      "channelId": "1502020454599229521",
+      "adminChannelId": "1502020455660523562",
+      "guildId": "1499390539546759300",
+      "userId": "1050469935089983488",
+      "username": "f.993",
+      "category": "other",
+      "title": "ضصثضصث",
+      "description": "ضصثضصثضصث",
+      "priority": "medium",
+      "status": "closed",
+      "openedAt": 1778176593049,
+      "lastActivity": 1778177585575,
+      "inactivityWarned": false,
+      "closedAt": 1778177585923,
+      "rating": 4,
+      "ratedBy": "1050469935089983488"
+    },
+    "FX9-0003": {
+      "ticketId": "FX9-0003",
+      "channelId": "1502024844051742811",
+      "adminChannelId": "1502024846039584799",
+      "guildId": "1499390539546759300",
+      "userId": "1050469935089983488",
+      "username": "f.993",
+      "category": "technical",
+      "title": "طلب برمجة",
+      "description": "ضصثضصثضص",
+      "priority": "medium",
+      "status": "closed",
+      "openedAt": 1778177639649,
+      "lastActivity": 1778178035042,
+      "inactivityWarned": false,
+      "claimedBy": "1050469935089983488",
+      "claimedByUsername": "f.993",
+      "closedAt": 1778178035327,
+      "rating": 3,
+      "ratedBy": "1050469935089983488"
+    }
+  },
+  "adminStats": {
+    "1050469935089983488": {
+      "adminId": "1050469935089983488",
+      "username": "f.993",
+      "claimed": 1,
+      "closed": 1,
+      "totalRating": 3,
+      "ratingCount": 1
+    }
+  }
 }

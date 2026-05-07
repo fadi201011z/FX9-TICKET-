@@ -14,7 +14,7 @@ const commands = new Map<string, Cmd>();
 
 export async function loadCommands(): Promise<void> {
   const mods = await Promise.all([
-    import("../commands/config.js"),
+
     import("../commands/configt.js"),
     import("../commands/stats.js"),
     import("../commands/panel.js"),

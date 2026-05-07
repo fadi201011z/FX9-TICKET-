@@ -6,7 +6,6 @@
 
 import "dotenv/config";
 import { REST, Routes } from "discord.js";
-import { data as configCmd   } from "./commands/config.js";
 import { data as configtCmd  } from "./commands/configt.js";
 import { data as statsCmd    } from "./commands/stats.js";
 import { data as panelCmd    } from "./commands/panel.js";
@@ -31,7 +30,7 @@ if (!TOKEN || !CLIENT_ID) {
 }
 
 const cmds = [
-  configCmd, configtCmd, statsCmd, panelCmd,
+  configtCmd, configtCmd, statsCmd, panelCmd,
   ratingsCmd, ticketCmd, announceCmd, helptCmd,
   botinfoCmd, remindCmd,
 ].map((c) => c.toJSON());

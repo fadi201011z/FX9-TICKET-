@@ -23,12 +23,26 @@ async function formatAdminRelay(msg: Message, guildId: string, client: Client): 
     const guild  = client.guilds.cache.get(guildId);
     const member = guild ? await guild.members.fetch(msg.author.id) : null;
     if (member) {
-      const config  = getGuildConfig(guildId);
-      const support = config.supportRoleIds
-        .filter((id) => member.roles.cache.has(id))
-        .map((id) => member.roles.cache.get(id)?.name)
-        .filter(Boolean);
-      roleDisplay = support.length > 0 ? `[${support[0]}] ` : "[دعم] ";
+      const config = getGuildConfig(guildId);
+      
+      // 1. جلب الرتبة المضافة في الإعدادات (إذا وجدت) لتعطيها الأولوية
+      const supportRoleId = config.supportRoleIds.find((id) => member.roles.cache.has(id));
+      
+      if (supportRoleId) {
+        const roleName = member.roles.cache.get(supportRoleId)?.name;
+        roleDisplay = `[${roleName}] `;
+      } 
+      // 2. إذا لم تكن الرتبة مضافة في الإعدادات، نجلب "أعلى رتبة" لدى الشخص
+      else {
+        // فلترة الرتب لتجنب جلب رتبة "@everyone"
+        const highestRole = member.roles.highest;
+        
+        if (highestRole && highestRole.name !== "@everyone") {
+          roleDisplay = `[${highestRole.name}] `;
+        } else {
+          roleDisplay = "[STAFF] "; // لقب احتياطي جداً في حال عدم وجود رتب
+        }
+      }
     }
   } catch {}
 
